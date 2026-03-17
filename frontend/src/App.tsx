@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Select from 'react-select';
-import { Plane, Search, AlertCircle, ArrowRight, PlaneTakeoff, Loader2 } from 'lucide-react';
+import { Plane, Search, AlertCircle, PlaneTakeoff, Loader2 } from 'lucide-react';
+import airportsData from './airports.json';
 import './index.css';
 
 interface FlightResult {
@@ -10,31 +11,29 @@ interface FlightResult {
   airline: string;
 }
 
-const MAJOR_CITIES = [
-  { value: 'NYC', label: 'New York (NYC)' },
-  { value: 'SFO', label: 'San Francisco (SFO)' },
-  { value: 'LAX', label: 'Los Angeles (LAX)' },
-  { value: 'CHI', label: 'Chicago (CHI)' },
-  { value: 'BOS', label: 'Boston (BOS)' },
-  { value: 'SEA', label: 'Seattle (SEA)' },
-  { value: 'YVR', label: 'Vancouver (YVR)' },
-  { value: 'LHR', label: 'London (LHR)' },
-  { value: 'CDG', label: 'Paris (CDG)' },
-  { value: 'TYO', label: 'Tokyo (TYO)' },
-  { value: 'SIN', label: 'Singapore (SIN)' },
-  { value: 'SYD', label: 'Sydney (SYD)' },
-];
-
 function App() {
   const [selectedCity, setSelectedCity] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FlightResult | null>(null);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Performance optimization: only show top 50 matches so the dropdown doesn't lag
+  const options = useMemo(() => {
+    if (!searchQuery) {
+      // Default to some major hubs if they haven't typed yet
+      return airportsData.filter(a => ['JFK', 'SFO', 'LHR', 'HND', 'SYD'].includes(a.value));
+    }
+    const lower = searchQuery.toLowerCase();
+    return airportsData
+      .filter(a => a.searchStr.includes(lower))
+      .slice(0, 50);
+  }, [searchQuery]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCity) {
-      setError('Please select an origin city.');
+      setError('Please select an origin city/airport.');
       return;
     }
 
@@ -102,14 +101,17 @@ function App() {
           <label className="input-label">DEPARTING FROM</label>
           <div style={{ marginBottom: '1.5rem' }}>
             <Select
-              options={MAJOR_CITIES}
+              options={options}
               value={selectedCity}
               onChange={setSelectedCity}
+              onInputChange={(val) => setSearchQuery(val)}
+              filterOption={null} // Handled by useMemo optimization
               styles={selectStyles}
-              placeholder="Search major tech hubs..."
+              placeholder="Type any city or airport code..."
               isSearchable
               isDisabled={loading}
               components={{ IndicatorSeparator: () => null }}
+              noOptionsMessage={() => searchQuery ? "No airports found" : "Type to search..."}
             />
           </div>
 
