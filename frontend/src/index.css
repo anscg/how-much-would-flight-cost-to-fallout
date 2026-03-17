@@ -1,111 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  --bg: #0A0A0A;
+  --fg: #EAEAEA;
+  --accent: #FF3B00;
+  --mono: 'Space Mono', monospace;
+  --display: 'Anton', sans-serif;
 }
 
 body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
+  background-color: var(--bg);
+  color: var(--fg);
   font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+h1, h2, h3 {
+  font-family: var(--display);
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1;
+}
+
+.container {
+  width: 100%;
+  max-width: 900px;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.title {
+  font-size: clamp(3rem, 12vw, 8rem);
+  color: var(--accent);
+  letter-spacing: -0.02em;
+  margin-bottom: 3rem;
+  word-wrap: break-word;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+.input-label {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+}
+
+.airport-input {
+  background: transparent;
+  border: none;
+  border-bottom: 6px solid var(--fg);
+  color: var(--fg);
+  font-family: var(--display);
+  font-size: clamp(4rem, 15vw, 10rem);
+  outline: none;
+  padding: 0;
+  text-transform: uppercase;
+  transition: border-color 0.3s;
+  width: 100%;
+}
+
+.airport-input:focus {
+  border-color: var(--accent);
+}
+
+.airport-input::placeholder {
+  color: rgba(234, 234, 234, 0.1);
+}
+
+.submit-btn {
+  background: var(--fg);
+  color: var(--bg);
+  border: none;
+  font-family: var(--mono);
+  font-weight: bold;
+  font-size: 1.5rem;
+  padding: 1.5rem 3rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: all 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.submit-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.result-card {
+  border: 6px solid var(--accent);
+  padding: 3rem;
+  margin-top: 4rem;
+  position: relative;
+  background: var(--bg);
+}
+
+.result-card::before {
+  content: 'OPTIMAL ROUTE';
+  position: absolute;
+  top: -1.2rem;
+  left: 2rem;
+  background: var(--bg);
+  padding: 0 1rem;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-weight: bold;
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-family: var(--display);
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  margin-bottom: 2rem;
+}
+
+.arrow {
+  color: var(--accent);
+}
+
+.price {
+  font-family: var(--display);
+  font-size: clamp(4rem, 12vw, 8rem);
+  color: var(--fg);
+  margin-bottom: 1rem;
+}
+
+.airline {
+  font-size: 1.5rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+  border-top: 2px solid rgba(255,255,255,0.1);
+  padding-top: 1rem;
+}
+
+.loader {
+  font-family: var(--display);
+  font-size: clamp(3rem, 8vw, 5rem);
+  color: var(--accent);
+  margin-top: 3rem;
+  text-transform: uppercase;
+}
+
+.blink {
+  animation: blinker 1s cubic-bezier(0.5, 0, 1, 1) infinite alternate;
+}
+
+@keyframes blinker {
+  to { opacity: 0; }
+}
+
+.error {
+  color: var(--accent);
+  font-size: 1.5rem;
+  margin-top: 2rem;
+  border-left: 6px solid var(--accent);
+  padding-left: 1.5rem;
 }
