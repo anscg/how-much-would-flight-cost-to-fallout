@@ -3,22 +3,17 @@ version: "3.8"
 services:
   backend:
     build: ./backend
-    # Remove 'ports' or use 'expose' so only internal services (and Coolify proxy) can see it
     expose:
       - "8000"
-    volumes:
-      - ./backend:/app
+
     environment:
       - PYTHONUNBUFFERED=1
 
   frontend:
     build: ./frontend
-    # Same here: expose 5173 internally, don't bind to host
     expose:
       - "5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+
     depends_on:
       - backend
     environment:
