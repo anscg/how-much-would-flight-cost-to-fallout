@@ -87,9 +87,7 @@ function App() {
     setResults([]);
     setError("");
 
-    const API_BASE = import.meta.env.PROD
-      ? "https://z88ws4kg80g4g40g0swsokcs.wheelshkga.anscg.net"
-      : "http://localhost:8000";
+    const API_BASE = "https://z88ws4kg80g4g40g0swsokcs.wheelshkga.anscg.net";
 
     const source = new EventSource(
       `${API_BASE}/api/flights/stream?origin=${selectedCity.value}`,
