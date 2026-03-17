@@ -93,7 +93,7 @@ async def scrape_flight(context, origin: str, dest: str):
         seat="economy",
         passengers=Passengers(adults=1, children=0, infants_in_seat=0, infants_on_lap=0)
     )
-    url = f"https://www.google.com/travel/flights?tfs={tfs.as_b64().decode('utf-8')}&hl=en"
+    url = f"https://www.google.com/travel/flights?tfs={tfs.as_b64().decode('utf-8')}&hl=en&curr=USD"
     
     page = await context.new_page()
     extracted_flights = []
