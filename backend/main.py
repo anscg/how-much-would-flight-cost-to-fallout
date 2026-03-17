@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import asyncio
 import json
@@ -22,7 +23,6 @@ browser = None
 async def lifespan(app: FastAPI):
     global playwright_instance, browser
     playwright_instance = await async_playwright().start()
-    # Launch browser globally to be reused across requests
     browser = await playwright_instance.chromium.launch(headless=True)
     yield
     if browser:
@@ -40,7 +40,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load Airports DB for nearby airport calculations
 try:
     with open("airports.json", "r") as f:
         airports_raw = json.load(f)
@@ -85,7 +84,6 @@ def parse_price(price_str):
         return float('inf')
 
 async def scrape_flight(context, origin: str, dest: str):
-    # Use fast-flights purely to generate the Base64 Protobuf payload for the URL
     tfs = TFSData.from_interface(
         flight_data=[
             FlightData(date=DEPART_DATE, from_airport=origin, to_airport=dest),
@@ -100,45 +98,34 @@ async def scrape_flight(context, origin: str, dest: str):
     page = await context.new_page()
     best_flight = None
     try:
-        # Mask webdriver signature
         await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        
         await page.goto(url, wait_until="domcontentloaded")
         
-        # 1. Switch to "Cheapest" tab if it exists to ensure we bypass Google's "Best" sorting
         try:
             tab = page.locator('div[role="tab"]', has_text="Cheapest")
             if await tab.count() > 0:
                 await tab.first.click(timeout=3000)
                 await page.wait_for_timeout(1000)
         except:
-            pass # Tab not found, likely already viewing the only list
+            pass
             
-        # 2. WAIT FOR THE PROGRESS BAR! This solves the issue fast-flights had.
         try:
             progress = page.locator('[role="progressbar"]')
-            # Wait up to 15 seconds for Google's background XHR flight fetching to finish
             await progress.wait_for(state="hidden", timeout=15000)
         except:
-            # Fallback if progress bar is undetectable
             await page.wait_for_timeout(8000)
             
-        # Extra 2 seconds for DOM to settle after progress bar finishes
         await page.wait_for_timeout(2000)
         
-        # 3. Extract the lowest price directly from the DOM using robust heuristics
         flights = await page.evaluate('''() => {
             let results = [];
             document.querySelectorAll('li').forEach(li => {
                 let text = li.innerText || '';
-                // Heuristic: valid flight rows contain duration and a currency symbol
                 if ((text.includes(' hr ') || text.includes(' min ')) && text.match(/[$£€₹¥]/)) {
                     let priceMatch = text.match(/[$£€₹¥]\\s*[\\d,]+/);
                     let price = priceMatch ? priceMatch[0] : null;
-                    
-                    let airlineEl = li.querySelector('.sSHqwe'); // Google Flights airline class
+                    let airlineEl = li.querySelector('.sSHqwe');
                     let airline = airlineEl ? airlineEl.innerText : text.split('\\n')[0];
-                    
                     if (price) {
                         results.push({ price, airline });
                     }
@@ -165,50 +152,40 @@ async def scrape_flight(context, origin: str, dest: str):
         
     return best_flight
 
-@app.get("/api/flights")
-async def get_cheapest_flight(origin: str = Query(..., min_length=3, max_length=3)):
+@app.get("/api/flights/stream")
+async def stream_flights(origin: str = Query(..., min_length=3, max_length=3)):
     origin = origin.upper()
-    
     origins_to_check = get_nearby_airports(origin, max_miles=100, max_results=3)
     if origin not in origins_to_check:
         origins_to_check.insert(0, origin)
         
-    print(f"Scanning matrix: {origins_to_check} -> {DESTINATIONS}")
+    print(f"Streaming scan matrix: {origins_to_check} -> {DESTINATIONS}")
     
-    # Create a new browser context (like an incognito window) for this request
-    context = await browser.new_context()
-    
-    # Throttle concurrency so we don't open 12 tabs at once and crash Chromium/RAM
-    sem = asyncio.Semaphore(6)
-    
-    async def fetch_with_sem(o, d):
-        async with sem:
-            return await scrape_flight(context, o, d)
-            
-    tasks = []
-    for o in origins_to_check:
-        for d in DESTINATIONS:
-            tasks.append(fetch_with_sem(o, d))
-            
-    results = await asyncio.gather(*tasks)
-    await context.close()
-    
-    valid_results = [r for r in results if r is not None]
-    
-    if not valid_results:
-        raise HTTPException(status_code=404, detail="No flights found to the Greater Bay Area.")
-    
-    valid_results.sort(key=lambda x: x["price_val"])
-    best = valid_results[0]
-    
-    origin_city = IATA_DB.get(best["actual_origin"], {}).get("city", best["actual_origin"])
-    
-    return {
-        "requested_origin": origin,
-        "actual_origin": best["actual_origin"],
-        "origin_city": origin_city,
-        "destination": best["destination"],
-        "price": best["price"],
-        "airline": best["airline"],
-        "scanned_airports": origins_to_check
-    }
+    async def event_generator():
+        context = await browser.new_context()
+        sem = asyncio.Semaphore(6)
+        
+        async def fetch_with_sem(o, d):
+            async with sem:
+                return await scrape_flight(context, o, d)
+                
+        tasks = []
+        for o in origins_to_check:
+            for d in DESTINATIONS:
+                tasks.append(asyncio.create_task(fetch_with_sem(o, d)))
+                
+        for coro in asyncio.as_completed(tasks):
+            try:
+                res = await coro
+                if res is not None:
+                    # Append city formatting
+                    res["origin_city"] = IATA_DB.get(res["actual_origin"], {}).get("city", res["actual_origin"])
+                    res["requested_origin"] = origin
+                    yield f"data: {json.dumps(res)}\n\n"
+            except Exception as e:
+                print(f"Stream error: {e}")
+                
+        await context.close()
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

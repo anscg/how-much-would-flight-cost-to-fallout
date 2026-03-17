@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Select from 'react-select';
-import { Plane, Search, AlertCircle, PlaneTakeoff, Loader2, Sparkles } from 'lucide-react';
+import { Plane, Search, AlertCircle, Loader2 } from 'lucide-react';
 import airportsData from './airports.json';
 import './index.css';
 
@@ -10,8 +10,8 @@ interface FlightResult {
   origin_city: string;
   destination: string;
   price: string;
+  price_val: number;
   airline: string;
-  scanned_airports: string[];
 }
 
 const DESTINATION_CITIES: Record<string, string> = {
@@ -24,9 +24,20 @@ const DESTINATION_CITIES: Record<string, string> = {
 function App() {
   const [selectedCity, setSelectedCity] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<FlightResult | null>(null);
+  const [results, setResults] = useState<FlightResult[]>([]);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Cleanup EventSource on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
 
   const options = useMemo(() => {
     if (!searchQuery) {
@@ -38,29 +49,51 @@ function App() {
       .slice(0, 50);
   }, [searchQuery]);
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCity) {
       setError('Please select an origin city/airport.');
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setResult(null);
-
-    try {
-      const res = await fetch(`http://localhost:8000/api/flights?origin=${selectedCity.value}`);
-      if (!res.ok) {
-        throw new Error('No routes found for this origin.');
-      }
-      const data = await res.json();
-      setResult(data);
-    } catch (err: any) {
-      setError(err.message || 'Transmission failed. Ensure backend is running.');
-    } finally {
-      setLoading(false);
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
     }
+
+    setLoading(true);
+    setResults([]);
+    setError('');
+
+    const source = new EventSource(`http://localhost:8000/api/flights/stream?origin=${selectedCity.value}`);
+    eventSourceRef.current = source;
+
+    source.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.done) {
+        setLoading(false);
+        source.close();
+      } else {
+        setResults((prev) => {
+          // Check for duplicate routes (sometimes background streams can be messy)
+          const isDuplicate = prev.some(r => r.actual_origin === data.actual_origin && r.destination === data.destination);
+          if (isDuplicate) return prev;
+
+          const newResults = [...prev, data];
+          // Always sort by cheapest
+          return newResults.sort((a, b) => a.price_val - b.price_val);
+        });
+      }
+    };
+
+    source.onerror = (err) => {
+      source.close();
+      setLoading(false);
+      // Only show error if we got literally nothing back before it failed
+      if (results.length === 0) {
+        setError('Connection interrupted or unable to find flights.');
+      }
+    };
   };
 
   const selectStyles = {
@@ -105,7 +138,7 @@ function App() {
       </header>
 
       <main className="search-card">
-        <form onSubmit={handleSearch} className="input-group">
+        <form onSubmit={handleSearch} className="input-group" style={{ marginBottom: 0 }}>
           <label className="input-label">DEPARTING FROM</label>
           <div style={{ marginBottom: '1.5rem' }}>
             <Select
@@ -127,12 +160,12 @@ function App() {
             {loading ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Loader2 size={18} className="spinner" />
-                Wait ~20s for cheapest...
+                Searching matrix...
               </span>
             ) : (
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Search size={18} />
-                Find Cheapest Flight
+                Find Best Routes
               </span>
             )}
           </button>
@@ -144,75 +177,50 @@ function App() {
             {error}
           </div>
         )}
+      </main>
 
-        {loading && (
-          <div className="loading-state">
-            <PlaneTakeoff size={32} className="spinner" />
-            <p style={{ fontWeight: 500, margin: 0 }}>Bypassing Google's initial load...</p>
-            <p style={{ fontSize: '0.875rem', marginTop: '-0.5rem', textAlign: 'center' }}>
-              We wait for all background network requests to finish so we don't miss the true cheapest price.
-            </p>
-          </div>
-        )}
-
-        {result && !loading && (
-          <div className="result-container">
-            <div className="result-header">
-              <span className="result-badge">Absolute Lowest Price</span>
-            </div>
-
-            {result.actual_origin !== result.requested_origin && (
-               <div style={{ 
-                 display: 'flex', 
-                 alignItems: 'center', 
-                 gap: '6px', 
-                 background: 'rgba(236,55,80,0.05)', 
-                 color: 'var(--accent)', 
-                 padding: '0.5rem 1rem', 
-                 borderRadius: '8px',
-                 fontSize: '0.875rem',
-                 fontWeight: 600,
-                 marginBottom: '1.5rem'
-               }}>
-                 <Sparkles size={16} />
-                 Saved money flying from nearby {result.actual_origin} instead of {result.requested_origin}!
-               </div>
-            )}
+      <div className="results-list">
+        {results.map((res, idx) => (
+          <div key={`${res.actual_origin}-${res.destination}`} className={`flight-row ${idx === 0 ? 'cheapest' : ''}`}>
             
-            <div className="route-info">
-              {/* ORIGIN */}
-              <div className="airport-display">
-                <span className="city-name">{result.origin_city}</span>
-                <span className="iata-code">{result.actual_origin}</span>
+            <div className="flight-route">
+              <div className="route-node">
+                <span className="node-code">{res.actual_origin}</span>
+                <span className="node-city">{res.origin_city.substring(0, 12)}{res.origin_city.length > 12 ? '...' : ''}</span>
               </div>
               
-              {/* FLIGHT PATH */}
-              <div className="flight-path">
-                <Plane size={24} style={{ color: 'var(--text-muted)' }} />
+              <div className="route-divider">
+                <Plane size={18} />
               </div>
 
-              {/* DESTINATION */}
-              <div className="airport-display">
-                <span className="city-name">{DESTINATION_CITIES[result.destination] || result.destination}</span>
-                <span className="iata-code">{result.destination}</span>
+              <div className="route-node">
+                <span className="node-code">{res.destination}</span>
+                <span className="node-city">{DESTINATION_CITIES[res.destination] || res.destination}</span>
               </div>
             </div>
-            
-            <div className="price-display">
-              {result.price}
-            </div>
-            
-            <div className="airline-info">
-              Operated by {result.airline} • Round-Trip
-            </div>
 
-            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px dashed var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', width: '100%' }}>
-              Deep Scanned Origins: {result.scanned_airports.join(', ')} <br/>
-              Destinations: HKG, MFM, SZX, CAN
+            <div className="flight-meta">
+              {idx === 0 && <span className="badge-cheapest">Best Price</span>}
+              <span className="flight-price">{res.price}</span>
+              <span className="flight-airline">{res.airline}</span>
             </div>
+            
+          </div>
+        ))}
+
+        {loading && (
+          <div className="loading-indicator">
+            <Loader2 size={24} className="spinner" />
+            Scanning background threads...
           </div>
         )}
-      </main>
+
+        {results.length > 0 && !loading && (
+          <div className="stream-disclaimer">
+            Scan complete. Displaying all valid nearby routes.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
