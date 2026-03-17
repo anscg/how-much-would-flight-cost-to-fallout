@@ -1,14 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import Select from 'react-select';
-import { Plane, Search, AlertCircle, PlaneTakeoff, Loader2 } from 'lucide-react';
+import { Plane, Search, AlertCircle, PlaneTakeoff, Loader2, Sparkles } from 'lucide-react';
 import airportsData from './airports.json';
 import './index.css';
 
 interface FlightResult {
-  origin: string;
+  requested_origin: string;
+  actual_origin: string;
+  origin_city: string;
   destination: string;
   price: string;
   airline: string;
+  scanned_airports: string[];
 }
 
 const DESTINATION_CITIES: Record<string, string> = {
@@ -25,10 +28,8 @@ function App() {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Performance optimization for dropdown
   const options = useMemo(() => {
     if (!searchQuery) {
-      // Default major hubs if they haven't typed yet
       return airportsData.filter((a: any) => ['JFK', 'SFO', 'LHR', 'HND', 'SYD'].includes(a.value));
     }
     const lower = searchQuery.toLowerCase();
@@ -56,7 +57,7 @@ function App() {
       const data = await res.json();
       setResult(data);
     } catch (err: any) {
-      setError(err.message || 'Transmission failed.');
+      setError(err.message || 'Transmission failed. Ensure backend is running.');
     } finally {
       setLoading(false);
     }
@@ -126,7 +127,7 @@ function App() {
             {loading ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Loader2 size={18} className="spinner" />
-                Scanning routes...
+                Scanning region...
               </span>
             ) : (
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -147,21 +148,40 @@ function App() {
         {loading && (
           <div className="loading-state">
             <PlaneTakeoff size={32} className="spinner" />
-            <p style={{ fontWeight: 500 }}>Scanning prices to HKG, MFM, SZX & CAN...</p>
+            <p style={{ fontWeight: 500, margin: 0 }}>Scanning matrix...</p>
+            <p style={{ fontSize: '0.875rem', marginTop: '-0.5rem' }}>Checking 100-mile radius & HKG, MFM, SZX, CAN</p>
           </div>
         )}
 
         {result && !loading && (
           <div className="result-container">
             <div className="result-header">
-              <span className="result-badge">Best Price Guarantee</span>
+              <span className="result-badge">Best Price Found</span>
             </div>
+
+            {result.actual_origin !== result.requested_origin && (
+               <div style={{ 
+                 display: 'flex', 
+                 alignItems: 'center', 
+                 gap: '6px', 
+                 background: 'rgba(236,55,80,0.05)', 
+                 color: 'var(--accent)', 
+                 padding: '0.5rem 1rem', 
+                 borderRadius: '8px',
+                 fontSize: '0.875rem',
+                 fontWeight: 600,
+                 marginBottom: '1.5rem'
+               }}>
+                 <Sparkles size={16} />
+                 Saved money flying from nearby {result.actual_origin} instead of {result.requested_origin}!
+               </div>
+            )}
             
             <div className="route-info">
               {/* ORIGIN */}
               <div className="airport-display">
-                <span className="city-name">{selectedCity?.city || result.origin}</span>
-                <span className="iata-code">{result.origin}</span>
+                <span className="city-name">{result.origin_city}</span>
+                <span className="iata-code">{result.actual_origin}</span>
               </div>
               
               {/* FLIGHT PATH */}
@@ -182,6 +202,11 @@ function App() {
             
             <div className="airline-info">
               Operated by {result.airline} • Round-Trip
+            </div>
+
+            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px dashed var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', width: '100%' }}>
+              Scanned Origins: {result.scanned_airports.join(', ')} <br/>
+              Scanned Dests: HKG, MFM, SZX, CAN
             </div>
           </div>
         )}
