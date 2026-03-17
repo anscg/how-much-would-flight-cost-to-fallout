@@ -2,8 +2,9 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fast_flights import FlightData, Passengers, get_flights
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 import concurrent.futures
+import re
 
 app = FastAPI()
 
@@ -19,12 +20,15 @@ DESTINATIONS = ["HKG", "MFM", "SZX", "CAN"]
 DEPART_DATE = "2026-07-01"
 RETURN_DATE = "2026-07-07"
 
-class FlightResponse(BaseModel):
-    origin: str
-    destination: str
-    price: str
-    airline: str
-    link: Optional[str] = None
+def parse_price(price_str):
+    if not price_str: 
+        return float('inf')
+    # Strip out currency symbols and commas, keep digits and decimals
+    clean = re.sub(r'[^\d.]', '', str(price_str))
+    try:
+        return float(clean) if clean else float('inf')
+    except ValueError:
+        return float('inf')
 
 def fetch_flight(origin: str, dest: str):
     try:
@@ -38,20 +42,24 @@ def fetch_flight(origin: str, dest: str):
             passengers=Passengers(adults=1, children=0, infants_in_seat=0, infants_on_lap=0),
             fetch_mode="fallback",
         )
+        
         if result and getattr(result, 'flights', None) and len(result.flights) > 0:
-            cheapest = result.flights[0]
-            price = getattr(cheapest, 'price', 'Unknown')
-            airline = getattr(cheapest, 'name', 'Unknown Airline')
+            best_flight = None
             
-            # fast-flights price is usually an int or string like "$500"
-            price_val = float(''.join(c for c in str(price) if c.isdigit() or c == '.')) if any(c.isdigit() for c in str(price)) else float('inf')
+            # Iterate through all flights to guarantee we find the cheapest one
+            for flight in result.flights:
+                price_str = getattr(flight, 'price', None)
+                price_val = parse_price(price_str)
+                
+                if best_flight is None or price_val < best_flight["price_val"]:
+                    best_flight = {
+                        "destination": dest,
+                        "price": str(price_str) if price_str else "Unknown",
+                        "price_val": price_val,
+                        "airline": getattr(flight, 'name', 'Unknown Airline')
+                    }
+            return best_flight
             
-            return {
-                "destination": dest,
-                "price": str(price),
-                "price_val": price_val,
-                "airline": airline
-            }
     except Exception as e:
         print(f"Error fetching {origin}->{dest}: {e}")
     return None
@@ -59,9 +67,7 @@ def fetch_flight(origin: str, dest: str):
 @app.get("/api/flights")
 def get_cheapest_flight(origin: str = Query(..., min_length=3, max_length=3)):
     origin = origin.upper()
-    best_flight = None
     
-    # Fetch in parallel for speed
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(fetch_flight, origin, dest) for dest in DESTINATIONS]
         results = [f.result() for f in concurrent.futures.as_completed(futures) if f.result() is not None]
@@ -69,7 +75,7 @@ def get_cheapest_flight(origin: str = Query(..., min_length=3, max_length=3)):
     if not results:
         raise HTTPException(status_code=404, detail="No flights found to the Greater Bay Area.")
     
-    # Sort by extracted numeric price
+    # Sort by the numeric price to find the absolute cheapest across all 4 destinations
     results.sort(key=lambda x: x["price_val"])
     best = results[0]
     
