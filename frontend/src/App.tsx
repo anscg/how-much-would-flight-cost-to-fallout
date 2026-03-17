@@ -30,7 +30,6 @@ function App() {
   
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Cleanup EventSource on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (eventSourceRef.current) {
@@ -75,8 +74,13 @@ function App() {
         source.close();
       } else {
         setResults((prev) => {
-          // Check for duplicate routes (sometimes background streams can be messy)
-          const isDuplicate = prev.some(r => r.actual_origin === data.actual_origin && r.destination === data.destination);
+          // Because multiple browsers might find the exact same flight, prevent perfect duplicates
+          const isDuplicate = prev.some(r => 
+            r.actual_origin === data.actual_origin && 
+            r.destination === data.destination &&
+            r.airline === data.airline &&
+            r.price === data.price
+          );
           if (isDuplicate) return prev;
 
           const newResults = [...prev, data];
@@ -89,7 +93,6 @@ function App() {
     source.onerror = (err) => {
       source.close();
       setLoading(false);
-      // Only show error if we got literally nothing back before it failed
       if (results.length === 0) {
         setError('Connection interrupted or unable to find flights.');
       }
@@ -129,6 +132,9 @@ function App() {
       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
     })
   };
+
+  // Only display the top 10 cheapest flights globally
+  const top10Results = results.slice(0, 10);
 
   return (
     <div className="app-wrapper">
@@ -179,48 +185,62 @@ function App() {
         )}
       </main>
 
-      <div className="results-list">
-        {results.map((res, idx) => (
-          <div key={`${res.actual_origin}-${res.destination}`} className={`flight-row ${idx === 0 ? 'cheapest' : ''}`}>
-            
-            <div className="flight-route">
-              <div className="route-node">
-                <span className="node-code">{res.actual_origin}</span>
-                <span className="node-city">{res.origin_city.substring(0, 12)}{res.origin_city.length > 12 ? '...' : ''}</span>
-              </div>
-              
-              <div className="route-divider">
-                <Plane size={18} />
-              </div>
+      {(results.length > 0 || loading) && (
+        <div className="table-container">
+          {top10Results.length > 0 && (
+            <table className="flights-table">
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Carrier</th>
+                  <th style={{ textAlign: 'right' }}>Return Fare</th>
+                </tr>
+              </thead>
+              <tbody>
+                {top10Results.map((res, idx) => (
+                  <tr key={`${res.actual_origin}-${res.destination}-${res.airline}-${idx}`}>
+                    <td>
+                      <div className="route-cell">
+                        <div className="airport-pill">
+                          <span className="airport-code">{res.actual_origin}</span>
+                          <span className="airport-city">{res.origin_city.substring(0, 10)}{res.origin_city.length > 10 ? '...' : ''}</span>
+                        </div>
+                        
+                        <Plane size={16} className="plane-icon" />
+                        
+                        <div className="airport-pill">
+                          <span className="airport-code">{res.destination}</span>
+                          <span className="airport-city">{DESTINATION_CITIES[res.destination] || res.destination}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="airline-cell">{res.airline}</span>
+                    </td>
+                    <td className="price-cell">
+                      {res.price}
+                      {idx === 0 && <span className="best-badge">Best</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
-              <div className="route-node">
-                <span className="node-code">{res.destination}</span>
-                <span className="node-city">{DESTINATION_CITIES[res.destination] || res.destination}</span>
-              </div>
+          {loading && (
+            <div className="loading-indicator">
+              <Loader2 size={18} className="spinner" />
+              Scanning background threads...
             </div>
+          )}
+        </div>
+      )}
 
-            <div className="flight-meta">
-              {idx === 0 && <span className="badge-cheapest">Best Price</span>}
-              <span className="flight-price">{res.price}</span>
-              <span className="flight-airline">{res.airline}</span>
-            </div>
-            
-          </div>
-        ))}
-
-        {loading && (
-          <div className="loading-indicator">
-            <Loader2 size={24} className="spinner" />
-            Scanning background threads...
-          </div>
-        )}
-
-        {results.length > 0 && !loading && (
-          <div className="stream-disclaimer">
-            Scan complete. Displaying all valid nearby routes.
-          </div>
-        )}
-      </div>
+      {results.length > 0 && !loading && (
+        <div className="stream-disclaimer">
+          Scan complete. Displaying the top {top10Results.length} cheapest routes found across {results.length} total options.
+        </div>
+      )}
     </div>
   );
 }

@@ -34,7 +34,7 @@ h1, h2, h3 {
 
 .app-wrapper {
   width: 100%;
-  max-width: 600px;
+  max-width: 800px;
   padding: 2rem;
   box-sizing: border-box;
 }
@@ -67,7 +67,7 @@ h1, h2, h3 {
   padding: 2rem;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.05);
   border: 1px solid var(--border);
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .input-group {
@@ -122,102 +122,127 @@ h1, h2, h3 {
   gap: 0.5rem;
 }
 
-/* New Stream List UI */
-.results-list {
+/* Data Table UI */
+.table-container {
+  background: var(--surface);
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.flights-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.flights-table th {
+  padding: 1.25rem 1.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  background: rgba(249, 250, 251, 0.5);
+}
+
+.flights-table td {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.flights-table tr:last-child td {
+  border-bottom: none;
+}
+
+.flights-table tr {
+  transition: background-color 0.2s;
+}
+
+.flights-table tbody tr:hover {
+  background-color: var(--surface-hover);
+}
+
+/* Highlight absolute cheapest row */
+.flights-table tbody tr:first-child {
+  background-color: rgba(236, 55, 80, 0.03);
+}
+
+.flights-table tbody tr:first-child td {
+  border-bottom: 1px solid rgba(236, 55, 80, 0.1);
+}
+
+.route-cell {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.75rem;
 }
 
-.flight-row {
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 1.25rem 1.5rem;
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-}
-
-.flight-row:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-.flight-row.cheapest {
-  border: 2px solid var(--accent);
-}
-
-.flight-route {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.route-node {
+.airport-pill {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
 }
 
-.node-code {
+.airport-code {
   font-family: var(--font-display);
-  font-size: 1.5rem;
   font-weight: 700;
+  font-size: 1.125rem;
   line-height: 1;
-}
-
-.node-city {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.route-divider {
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-}
-
-.flight-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.2rem;
-}
-
-.flight-price {
-  font-family: var(--font-display);
-  font-size: 1.75rem;
-  font-weight: 700;
   color: var(--text-main);
-  line-height: 1;
 }
 
-.flight-row.cheapest .flight-price {
-  color: var(--accent);
-}
-
-.flight-airline {
-  font-size: 0.75rem;
+.airport-city {
+  font-size: 0.7rem;
   color: var(--text-muted);
   font-weight: 500;
+  margin-top: 0.2rem;
 }
 
-.badge-cheapest {
+.plane-icon {
+  color: var(--border);
+}
+
+.flights-table tbody tr:first-child .plane-icon {
+  color: var(--accent);
+  opacity: 0.5;
+}
+
+.airline-cell {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
+
+.price-cell {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--text-main);
+  text-align: right;
+}
+
+.flights-table tbody tr:first-child .price-cell {
+  color: var(--accent);
+  font-size: 1.75rem;
+}
+
+.best-badge {
+  display: inline-flex;
+  align-items: center;
   background: var(--accent);
   color: white;
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-weight: 700;
-  margin-bottom: 0.4rem;
-  display: inline-block;
+  margin-left: 0.75rem;
+  vertical-align: middle;
 }
 
 .loading-indicator {
@@ -229,6 +254,7 @@ h1, h2, h3 {
   color: var(--text-muted);
   font-size: 0.875rem;
   font-weight: 500;
+  border-top: 1px solid var(--border);
 }
 
 .spinner {
@@ -241,7 +267,7 @@ h1, h2, h3 {
   to { transform: rotate(360deg); }
 }
 
-@keyframes slideIn {
+@keyframes slideUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }

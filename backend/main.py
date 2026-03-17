@@ -96,7 +96,7 @@ async def scrape_flight(context, origin: str, dest: str):
     url = f"https://www.google.com/travel/flights?tfs={tfs.as_b64().decode('utf-8')}&hl=en"
     
     page = await context.new_page()
-    best_flight = None
+    extracted_flights = []
     try:
         await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         await page.goto(url, wait_until="domcontentloaded")
@@ -137,20 +137,24 @@ async def scrape_flight(context, origin: str, dest: str):
         if flights:
             for f in flights:
                 price_val = parse_price(f['price'])
-                if best_flight is None or price_val < best_flight['price_val']:
-                    best_flight = {
-                        "actual_origin": origin,
-                        "destination": dest,
-                        "price": f['price'],
-                        "price_val": price_val,
-                        "airline": f['airline']
-                    }
+                extracted_flights.append({
+                    "actual_origin": origin,
+                    "destination": dest,
+                    "price": f['price'],
+                    "price_val": price_val,
+                    "airline": f['airline']
+                })
+            
+            # Sort by price and grab the top 3 flights for this specific route so we have a good pool
+            extracted_flights.sort(key=lambda x: x['price_val'])
+            extracted_flights = extracted_flights[:3]
+            
     except Exception as e:
         print(f"Error scraping {origin}->{dest}: {e}")
     finally:
         await page.close()
         
-    return best_flight
+    return extracted_flights
 
 @app.get("/api/flights/stream")
 async def stream_flights(origin: str = Query(..., min_length=3, max_length=3)):
@@ -176,12 +180,13 @@ async def stream_flights(origin: str = Query(..., min_length=3, max_length=3)):
                 
         for coro in asyncio.as_completed(tasks):
             try:
-                res = await coro
-                if res is not None:
-                    # Append city formatting
-                    res["origin_city"] = IATA_DB.get(res["actual_origin"], {}).get("city", res["actual_origin"])
-                    res["requested_origin"] = origin
-                    yield f"data: {json.dumps(res)}\n\n"
+                res_list = await coro
+                if res_list:
+                    for res in res_list:
+                        # Append city formatting
+                        res["origin_city"] = IATA_DB.get(res["actual_origin"], {}).get("city", res["actual_origin"])
+                        res["requested_origin"] = origin
+                        yield f"data: {json.dumps(res)}\n\n"
             except Exception as e:
                 print(f"Stream error: {e}")
                 
