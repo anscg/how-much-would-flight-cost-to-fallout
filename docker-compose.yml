@@ -1,10 +1,11 @@
-version: '3.8'
+version: "3.8"
 
 services:
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
+    # Remove 'ports' or use 'expose' so only internal services (and Coolify proxy) can see it
+    expose:
+      - "8000"
     volumes:
       - ./backend:/app
     environment:
@@ -12,8 +13,9 @@ services:
 
   frontend:
     build: ./frontend
-    ports:
-      - "5173:5173"
+    # Same here: expose 5173 internally, don't bind to host
+    expose:
+      - "5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
