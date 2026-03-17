@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import Select from 'react-select';
 import { Plane, Search, AlertCircle, PlaneTakeoff, Loader2 } from 'lucide-react';
 import airportsData from './airports.json';
@@ -11,6 +11,13 @@ interface FlightResult {
   airline: string;
 }
 
+const DESTINATION_CITIES: Record<string, string> = {
+  'HKG': 'Hong Kong',
+  'MFM': 'Macau',
+  'SZX': 'Shenzhen',
+  'CAN': 'Guangzhou'
+};
+
 function App() {
   const [selectedCity, setSelectedCity] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -18,15 +25,15 @@ function App() {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Performance optimization: only show top 50 matches so the dropdown doesn't lag
+  // Performance optimization for dropdown
   const options = useMemo(() => {
     if (!searchQuery) {
-      // Default to some major hubs if they haven't typed yet
-      return airportsData.filter(a => ['JFK', 'SFO', 'LHR', 'HND', 'SYD'].includes(a.value));
+      // Default major hubs if they haven't typed yet
+      return airportsData.filter((a: any) => ['JFK', 'SFO', 'LHR', 'HND', 'SYD'].includes(a.value));
     }
     const lower = searchQuery.toLowerCase();
     return airportsData
-      .filter(a => a.searchStr.includes(lower))
+      .filter((a: any) => a.searchStr.includes(lower))
       .slice(0, 50);
   }, [searchQuery]);
 
@@ -105,7 +112,7 @@ function App() {
               value={selectedCity}
               onChange={setSelectedCity}
               onInputChange={(val) => setSearchQuery(val)}
-              filterOption={null} // Handled by useMemo optimization
+              filterOption={null}
               styles={selectStyles}
               placeholder="Type any city or airport code..."
               isSearchable
@@ -151,9 +158,22 @@ function App() {
             </div>
             
             <div className="route-info">
-              <span className="airport-code">{result.origin}</span>
-              <Plane size={24} className="plane-icon" />
-              <span className="airport-code">{result.destination}</span>
+              {/* ORIGIN */}
+              <div className="airport-display">
+                <span className="city-name">{selectedCity?.city || result.origin}</span>
+                <span className="iata-code">{result.origin}</span>
+              </div>
+              
+              {/* FLIGHT PATH */}
+              <div className="flight-path">
+                <Plane size={24} style={{ color: 'var(--text-muted)' }} />
+              </div>
+
+              {/* DESTINATION */}
+              <div className="airport-display">
+                <span className="city-name">{DESTINATION_CITIES[result.destination] || result.destination}</span>
+                <span className="iata-code">{result.destination}</span>
+              </div>
             </div>
             
             <div className="price-display">
