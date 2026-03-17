@@ -127,7 +127,7 @@ function App() {
             {loading ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Loader2 size={18} className="spinner" />
-                Scanning region...
+                Wait ~20s for cheapest...
               </span>
             ) : (
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -148,15 +148,17 @@ function App() {
         {loading && (
           <div className="loading-state">
             <PlaneTakeoff size={32} className="spinner" />
-            <p style={{ fontWeight: 500, margin: 0 }}>Scanning matrix...</p>
-            <p style={{ fontSize: '0.875rem', marginTop: '-0.5rem' }}>Checking 100-mile radius & HKG, MFM, SZX, CAN</p>
+            <p style={{ fontWeight: 500, margin: 0 }}>Bypassing Google's initial load...</p>
+            <p style={{ fontSize: '0.875rem', marginTop: '-0.5rem', textAlign: 'center' }}>
+              We wait for all background network requests to finish so we don't miss the true cheapest price.
+            </p>
           </div>
         )}
 
         {result && !loading && (
           <div className="result-container">
             <div className="result-header">
-              <span className="result-badge">Best Price Found</span>
+              <span className="result-badge">Absolute Lowest Price</span>
             </div>
 
             {result.actual_origin !== result.requested_origin && (
@@ -205,8 +207,8 @@ function App() {
             </div>
 
             <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px dashed var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', width: '100%' }}>
-              Scanned Origins: {result.scanned_airports.join(', ')} <br/>
-              Scanned Dests: HKG, MFM, SZX, CAN
+              Deep Scanned Origins: {result.scanned_airports.join(', ')} <br/>
+              Destinations: HKG, MFM, SZX, CAN
             </div>
           </div>
         )}
