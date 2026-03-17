@@ -42,6 +42,17 @@ function App() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
+    // Preload images
+    const imageUrls = [
+      ...Object.values(FRAME),
+      "https://cdn.hackclub.com/019cfd24-3dba-7e64-b34f-29d6bde57569/fallout-black.svg",
+    ];
+
+    imageUrls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
